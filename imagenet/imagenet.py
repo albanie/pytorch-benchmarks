@@ -8,6 +8,8 @@ Based on PyTorch imagenet example:
     https://github.com/pytorch/examples/tree/master/imagenet
 """
 
+from __future__ import division
+
 import os
 import time
 
@@ -55,19 +57,22 @@ def validate(val_loader, model):
     top5 = AverageMeter()
     speed = WarmupAverageMeter()
     end = time.time()
-    for ii, (ims, target) in enumerate(val_loader):
-        target = target.cuda(async=True)
-        ims_var = torch.autograd.Variable(ims, volatile=True)
-        output = model(ims_var) # compute output
-        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        top1.update(prec1[0], ims.size(0))
-        top5.update(prec5[0], ims.size(0))
-        speed.update(ims.size(0)/(time.time() - end))
-        end = time.time()
-        if ii % 10 == 0:
-            print('Test: [{0}/{1}]\t' 'Speed {speed.val:.1f}Hz ({speed.avg:.1f})Hz '
-                  'Prec@1 {top1.avg:.3f} {top5.avg:.3f}'.format(
-                      ii, len(val_loader), speed=speed, top1=top1, top5=top5))
+    with torch.no_grad():
+        for ii, (ims, target) in enumerate(val_loader):
+            target = target.cuda(async=True)
+            # ims_var = torch.autograd.Variable(ims, volatile=True)
+            output = model(ims) # compute output
+            prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+            top1.update(prec1[0], ims.size(0))
+            top5.update(prec5[0], ims.size(0))
+            speed.update(time.time() - end, ims.size(0))
+            end = time.time()
+            if ii % 10 == 0:
+                msg = ('Test: [{0}/{1}]\tSpeed {speed.current:.1f}Hz\t'
+                       '({speed.avg:.1f})Hz\tPrec@1 {top1.avg:.3f} '
+                       '{top5.avg:.3f}')
+                print(msg.format(ii, len(val_loader), speed=speed,
+                                              top1=top1, top5=top5))
     top1_err, top5_err = 100 - top1.avg, 100 - top5.avg
     print(' * Err@1 {0:.3f} Err@5 {1:.3f}'.format(top1_err, top5_err))
 
@@ -78,27 +83,27 @@ class WarmupAverageMeter(object):
     warmup period (useful for approximate benchmarking)
 
     Args:
-        warmup (int) : The number of updates to be ignored before the average
-        starts to be computed.
+        warmup (int) [3]: The number of updates to be ignored before the
+        average starts to be computed.
     """
-    def __init__(self, warmup=5):
+    def __init__(self, warmup=3):
         self.reset()
         self.warmup = warmup
 
     def reset(self):
-        self.val = 0
         self.avg = 0
-        self.sum = 0
+        self.current = 0
+        self.delta_sum = 0
         self.count = 0
         self.warmup_count = 0
 
-    def update(self, val, n=1):
+    def update(self, delta, n):
         self.warmup_count = self.warmup_count + 1
         if self.warmup_count >= self.warmup:
-            self.val = val
-            self.sum += val * n
+            self.current = n / delta
+            self.delta_sum += delta
             self.count += n
-            self.avg = self.sum / self.count
+            self.avg = self.count / self.delta_sum
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""

@@ -3,7 +3,7 @@
 """
 import torchvision.transforms as transforms
 
-def compose_transforms(meta):
+def compose_transforms(meta, resize=256):
     """Compose preprocessing transforms for model
 
     The imported models use a range of different preprocessing options,
@@ -13,6 +13,7 @@ def compose_transforms(meta):
 
     Args:
         meta (dict): model preprocessing requirements
+        resize (256): resize the input image to this size before cropping
 
     Return:
         (transforms.Compose): Composition of preprocessing transforms
@@ -20,7 +21,8 @@ def compose_transforms(meta):
     normalize = transforms.Normalize(mean=meta['mean'], std=meta['std'])
     im_size = meta['imageSize']
     assert im_size[0] == im_size[1], 'expected square image size'
-    transform_list = [transforms.Resize((im_size[0], im_size[1])),
+    transform_list = [transforms.Resize(resize),
+                      transforms.CenterCrop(size=(im_size[0], im_size[1])),
                       transforms.ToTensor()]
     if meta['std'] == [1,1,1]: # common amongst mcn models
         transform_list.append(lambda x: x * 255.0)
