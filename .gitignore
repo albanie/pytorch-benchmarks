@@ -2,3 +2,4 @@
 __pycache__
 .nfs*
 scratch
+res_cache

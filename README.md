@@ -8,9 +8,11 @@ Some scripts for validating models on common benchmarks. Aims to be compatible w
 * **ImageNet** (this is essentially just a cut-down version of the [official example](https://github.com/pytorch/examples/tree/master/imagenet), minus an validation-only version the training code)
 * **Fer2013** - A dataset of greyscale faces labelled with emotions.
 
+
+
 ### References
 
-**ImageNet** [paper](https://arxiv.org/abs/1409.0575)
+**ImageNet**: [paper](https://arxiv.org/abs/1409.0575)
 
 ```
 @article{ILSVRC15,
