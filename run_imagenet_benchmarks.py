@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""This module evaluates imported PyTorch models
+"""This script evaluates imported PyTorch models on the
+ImageNet validation set
 """
 
 import os
-import six
-import sys
 import argparse
-from imagenet import imagenet_benchmark
 from torchvision.models import densenet
+from imagenet.evaluation import imagenet_benchmark
+from utils.benchmark_helpers import load_module_2or3
 
 # directory containing imported pytorch models
 MODEL_DIR = os.path.expanduser('~/data/models/pytorch/mcn_imports/')
@@ -16,30 +16,7 @@ MODEL_DIR = os.path.expanduser('~/data/models/pytorch/mcn_imports/')
 ILSVRC_DIR = os.path.expanduser('~/data/datasets/ILSVRC2012')
 
 # results cache directory
-CACHE_DIR = '../res_cache'
-
-def load_module_2or3(model_name, model_def_path):
-    """Load model definition module in a manner that is compatible with
-    both Python2 and Python3
-
-    Args:
-        model_name: The name of the model to be loaded
-        model_def_path: The filepath of the module containing the definition
-
-    Return:
-        The loaded python module."""
-    if six.PY3:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(model_name, model_def_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-    else:
-        import importlib
-        dirname = os.path.dirname(model_def_path)
-        sys.path.insert(0, dirname)
-        module_name = os.path.splitext(os.path.basename(model_def_path))[0]
-        mod = importlib.import_module(module_name)
-    return mod
+CACHE_DIR = 'res_cache/imagenet'
 
 def load_torchvision_model(model_name):
     if 'densenet' in model_name:
@@ -70,7 +47,7 @@ def load_model(model_name):
         net = func(weights_path=weights_path)
     return net
 
-def run_benchmarks(gpus, refresh, remove_blacklist):
+def run_benchmarks(gpus, refresh, remove_blacklist, workers):
     """Run bencmarks for imported models
 
     Args:
@@ -78,6 +55,7 @@ def run_benchmarks(gpus, refresh, remove_blacklist):
         refresh (bool): whether to overwrite the results of existing runs
         remove_blacklist (bool): whether to remove images from the 2014 ILSVRC
           blacklist from the validation images used in the benchmark
+        workers (int): the number of workers
     """
 
     # Select models (and their batch sizes) to include in the benchmark.
@@ -99,11 +77,11 @@ def run_benchmarks(gpus, refresh, remove_blacklist):
         ("densenet161_pt_mcn", 32),
         ("densenet169_pt_mcn", 32),
         ("densenet201_pt_mcn", 32),
-        ("tv_densenet121", 32),
         ('imagenet_matconvnet_alex', 256),
         ('imagenet_matconvnet_vgg_f_dag', 128),
         ('imagenet_matconvnet_vgg_m_dag', 128),
         ('imagenet_matconvnet_vgg_verydeep_16_dag', 32),
+        # ("tv_densenet121", 32),
     ]
 
     if not os.path.exists(CACHE_DIR):
@@ -112,7 +90,7 @@ def run_benchmarks(gpus, refresh, remove_blacklist):
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
 
     opts = {'data_dir': ILSVRC_DIR, 'refresh_cache': refresh,
-            'remove_blacklist': remove_blacklist}
+            'remove_blacklist': remove_blacklist, 'num_workers': workers}
 
     for model_name, batch_size in model_list:
         opts['res_cache'] = '{}/{}.pth'.format(CACHE_DIR, model_name)
@@ -123,6 +101,8 @@ def run_benchmarks(gpus, refresh, remove_blacklist):
 parser = argparse.ArgumentParser(description='Run PyTorch benchmarks.')
 parser.add_argument('--gpus', nargs='?', dest='gpus',
                     help='select gpu device id')
+parser.add_argument('--workers', type=int, default=20, dest='workers',
+                    help='select number of workers')
 parser.add_argument('--refresh', dest='refresh', action='store_true',
                     help='refresh results cache')
 parser.add_argument('--remove-blacklist', dest='remove_blacklist',
@@ -136,4 +116,5 @@ parser.set_defaults(remove_blacklist=False)
 parsed = parser.parse_args()
 
 if __name__ == '__main__':
-    run_benchmarks(parsed.gpus, parsed.refresh, parsed.remove_blacklist)
+    run_benchmarks(parsed.gpus, parsed.refresh, parsed.remove_blacklist,
+                   parsed.workers)

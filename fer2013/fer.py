@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Imagenet validation set benchmark
+"""Fer2013 benchmark
 
-The module evaluates the performance of a pytorch model on the ILSVRC 2012
-validation set.
-
-Based on PyTorch imagenet example:
-    https://github.com/pytorch/examples/tree/master/imagenet
+The module evaluates the performance of a pytorch model on the FER2013
+benchmark.
 """
 
 from __future__ import division
@@ -13,70 +10,62 @@ from __future__ import division
 import os
 import time
 
-from PIL import ImageFile
 import torch
-import torch.nn.parallel
+import numpy as np
 import torch.utils.data
 import torch.backends.cudnn as cudnn
-import torchvision.datasets as datasets
+from fer2013.fer_loader import Fer2013Dataset
 from utils.benchmark_helpers import compose_transforms
 
-ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-def imagenet_benchmark(model, data_dir, res_cache, refresh_cache,
-                       batch_size=256, num_workers=20, remove_blacklist=False):
+def fer2013_benchmark(model, data_dir, res_cache, refresh_cache,
+                       batch_size=256, num_workers=2):
     if not refresh_cache: # load result from cache, if available
         if os.path.isfile(res_cache):
             res = torch.load(res_cache)
-            prec1, prec5, speed = res['prec1'], res['prec5'], res['speed']
+            prec1_val, prec1_test = res['prec1_val'], res['prec1_test']
             print("=> loaded results from '{}'".format(res_cache))
-            info = (100 - prec1, 100 - prec5, speed)
-            msg = 'Top 1 err: {:.2f}, Top 5 err: {:.2f}, Speed: {:.1f}Hz'
+            info = (prec1_val, prec1_test, res['speed'])
+            msg = 'val acc: {:.2f}, test acc: {:.2f}, Speed: {:.1f}Hz'
             print(msg.format(*info))
             return
 
     meta = model.meta
     cudnn.benchmark = True
     model = torch.nn.DataParallel(model).cuda()
-    if remove_blacklist:
-        subset = 'val_blacklisted'
-    else:
-        subset = 'val'
-    valdir = os.path.join(data_dir, subset)
-    preproc_transforms = compose_transforms(meta)
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, preproc_transforms),
-        batch_size=batch_size, shuffle=False,
-        num_workers=num_workers, pin_memory=True)
-    prec1, prec5, speed = validate(val_loader, model)
-    torch.save({'prec1': prec1, 'prec5': prec5, 'speed': speed}, res_cache)
+    preproc_transforms = compose_transforms(meta, center_crop=False)
+    speeds = []
+    res = {}
+    for mode in 'val', 'test':
+        loader = torch.utils.data.DataLoader(
+            Fer2013Dataset(data_dir, mode=mode, transform=preproc_transforms),
+            batch_size=batch_size, shuffle=False,
+            num_workers=num_workers, pin_memory=True)
+        prec1, speed = validate(loader, model, mode)
+        res['prec1_{}'.format(mode)] = prec1
+        speeds.append(speed)
+    res['speed'] = np.mean(speed)
+    torch.save(res, res_cache)
 
-def validate(val_loader, model):
+def validate(val_loader, model, mode):
     model.eval()
     top1 = AverageMeter()
-    top5 = AverageMeter()
     speed = WarmupAverageMeter()
     end = time.time()
     with torch.no_grad():
         for ii, (ims, target) in enumerate(val_loader):
             target = target.cuda(async=True)
-            # ims_var = torch.autograd.Variable(ims, volatile=True)
             output = model(ims) # compute output
-            prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+            prec1, = accuracy(output.data, target, topk=(1,))
             top1.update(prec1[0], ims.size(0))
-            top5.update(prec5[0], ims.size(0))
             speed.update(time.time() - end, ims.size(0))
             end = time.time()
             if ii % 10 == 0:
-                msg = ('Test: [{0}/{1}]\tSpeed {speed.current:.1f}Hz\t'
-                       '({speed.avg:.1f})Hz\tPrec@1 {top1.avg:.3f} '
-                       '{top5.avg:.3f}')
-                print(msg.format(ii, len(val_loader), speed=speed,
-                                              top1=top1, top5=top5))
-    top1_err, top5_err = 100 - top1.avg, 100 - top5.avg
-    print(' * Err@1 {0:.3f} Err@5 {1:.3f}'.format(top1_err, top5_err))
-
-    return top1.avg, top5.avg, speed.avg
+                msg = ('{0}: [{1}/{2}]\tSpeed {speed.current:.1f}Hz\t'
+                       '({speed.avg:.1f})Hz\tPrec@1 {top1.avg:.3f}')
+                print(msg.format(mode, ii, len(val_loader),
+                      speed=speed, top1=top1))
+    print(' * Accuracy {0:.3f}'.format(top1.avg))
+    return top1.avg, speed.avg
 
 class WarmupAverageMeter(object):
     """Computes and stores the average and current value, after a fixed

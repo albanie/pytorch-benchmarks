@@ -19,7 +19,7 @@ import torch.nn.parallel
 import torch.utils.data
 import torch.backends.cudnn as cudnn
 import torchvision.datasets as datasets
-from utils.benchmark_helpers import compose_transforms
+from utils.benchmark_helpers import compose_imagenet_transforms
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -43,7 +43,7 @@ def imagenet_benchmark(model, data_dir, res_cache, refresh_cache,
     else:
         subset = 'val'
     valdir = os.path.join(data_dir, subset)
-    preproc_transforms = compose_transforms(meta)
+    preproc_transforms = compose_imagenet_transforms(meta)
     val_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(valdir, preproc_transforms),
         batch_size=batch_size, shuffle=False,
