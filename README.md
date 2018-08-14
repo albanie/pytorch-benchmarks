@@ -5,7 +5,7 @@ Some scripts for validating models on common benchmarks. Aims to be compatible w
 
 ### Supported datasets:
 
-* **ImageNet** (this is essentially just a cut-down version of the [official example](https://github.com/pytorch/examples/tree/master/imagenet), minus an validation-only version the training code)
+* **ImageNet** (this is essentially just a cut-down version of the [official example](https://github.com/pytorch/examples/tree/master/imagenet))
 * **Fer2013** - A dataset of greyscale faces labelled with emotions.
 
 
