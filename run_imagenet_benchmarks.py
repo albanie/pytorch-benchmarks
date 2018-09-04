@@ -47,7 +47,8 @@ def load_model(model_name):
         net = func(weights_path=weights_path)
     return net
 
-def run_benchmarks(gpus, refresh, remove_blacklist, workers):
+def run_benchmarks(gpus, refresh, remove_blacklist, workers,
+                   no_center_crop, override_meta_imsize):
     """Run bencmarks for imported models
 
     Args:
@@ -83,6 +84,9 @@ def run_benchmarks(gpus, refresh, remove_blacklist, workers):
         ('imagenet_matconvnet_vgg_verydeep_16_dag', 32),
         # ("tv_densenet121", 32),
     ]
+    model_list = [
+        ('resnet50_pt_mcn', 32),
+    ]
 
     if not os.path.exists(CACHE_DIR):
         os.makedirs(CACHE_DIR)
@@ -90,10 +94,15 @@ def run_benchmarks(gpus, refresh, remove_blacklist, workers):
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
 
     opts = {'data_dir': ILSVRC_DIR, 'refresh_cache': refresh,
-            'remove_blacklist': remove_blacklist, 'num_workers': workers}
+            'remove_blacklist': remove_blacklist, 'num_workers': workers,
+            'center_crop': not no_center_crop,
+            'override_meta_imsize': override_meta_imsize}
 
     for model_name, batch_size in model_list:
-        opts['res_cache'] = '{}/{}.pth'.format(CACHE_DIR, model_name)
+        cache_name = '{}/{}'.format(CACHE_DIR, model_name)
+        if no_center_crop:
+            cache_name = '{}-no-center-crop'.format(cache_name)
+        opts['res_cache'] = '{}.pth'.format(cache_name)
         model = load_model(model_name)
         print('benchmarking {}'.format(model_name))
         imagenet_benchmark(model, batch_size=batch_size, **opts)
@@ -105,6 +114,12 @@ parser.add_argument('--workers', type=int, default=20, dest='workers',
                     help='select number of workers')
 parser.add_argument('--refresh', dest='refresh', action='store_true',
                     help='refresh results cache')
+parser.add_argument('--no_center_crop', dest='no_center_crop',
+                    action='store_true',
+                    help='prevent center cropping')
+parser.add_argument('--override_meta_imsize', dest='override_meta_imsize',
+                    action='store_true',
+                    help='allow arbitrary resizing of input image')
 parser.add_argument('--remove-blacklist', dest='remove_blacklist',
                     action='store_true',
                     help=('evaluate on 2012 validation subset without including'
@@ -113,8 +128,11 @@ parser.add_argument('--remove-blacklist', dest='remove_blacklist',
 parser.set_defaults(gpus=None)
 parser.set_defaults(refresh=False)
 parser.set_defaults(remove_blacklist=False)
+parser.set_defaults(no_center_crop=False)
+parser.set_defaults(override_meta_imsize=False)
 parsed = parser.parse_args()
 
 if __name__ == '__main__':
     run_benchmarks(parsed.gpus, parsed.refresh, parsed.remove_blacklist,
-                   parsed.workers)
+                   parsed.workers,no_center_crop=parsed.no_center_crop,
+                   override_meta_imsize=parsed.override_meta_imsize)

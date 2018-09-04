@@ -24,7 +24,8 @@ from utils.benchmark_helpers import compose_transforms
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def imagenet_benchmark(model, data_dir, res_cache, refresh_cache,
-                       batch_size=256, num_workers=20, remove_blacklist=False):
+                       batch_size=256, num_workers=20,
+                       remove_blacklist=False, center_crop=True):
     if not refresh_cache: # load result from cache, if available
         if os.path.isfile(res_cache):
             res = torch.load(res_cache)
@@ -43,7 +44,7 @@ def imagenet_benchmark(model, data_dir, res_cache, refresh_cache,
     else:
         subset = 'val'
     valdir = os.path.join(data_dir, subset)
-    preproc_transforms = compose_transforms(meta)
+    preproc_transforms = compose_transforms(meta, center_crop=center_crop)
     val_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(valdir, preproc_transforms),
         batch_size=batch_size, shuffle=False,

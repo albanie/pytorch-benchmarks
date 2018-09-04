@@ -19,12 +19,14 @@ import torch.nn.parallel
 import torch.utils.data
 import torch.backends.cudnn as cudnn
 import torchvision.datasets as datasets
-from utils.benchmark_helpers import compose_imagenet_transforms
+from utils.benchmark_helpers import compose_transforms
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def imagenet_benchmark(model, data_dir, res_cache, refresh_cache,
-                       batch_size=256, num_workers=20, remove_blacklist=False):
+                       batch_size=256, num_workers=20,
+                       remove_blacklist=False, center_crop=True,
+                       override_meta_imsize=False):
     if not refresh_cache: # load result from cache, if available
         if os.path.isfile(res_cache):
             res = torch.load(res_cache)
@@ -37,13 +39,19 @@ def imagenet_benchmark(model, data_dir, res_cache, refresh_cache,
 
     meta = model.meta
     cudnn.benchmark = True
+
+    if override_meta_imsize: # NOTE REMOVE THIS LATER!
+        import torch.nn as nn
+        model.features_8 = nn.AdaptiveAvgPool2d(1)
+
     model = torch.nn.DataParallel(model).cuda()
     if remove_blacklist:
         subset = 'val_blacklisted'
     else:
         subset = 'val'
     valdir = os.path.join(data_dir, subset)
-    preproc_transforms = compose_imagenet_transforms(meta)
+    preproc_transforms = compose_transforms(meta, resize=256, center_crop=center_crop,
+                                 override_meta_imsize=override_meta_imsize)
     val_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(valdir, preproc_transforms),
         batch_size=batch_size, shuffle=False,

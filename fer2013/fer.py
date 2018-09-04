@@ -14,11 +14,11 @@ import torch
 import numpy as np
 import torch.utils.data
 import torch.backends.cudnn as cudnn
-from fer2013.fer_loader import Fer2013Dataset
+from fer2013.fer_loader import Fer2013Dataset, Fer2013PlusDataset
 from utils.benchmark_helpers import compose_transforms
 
 def fer2013_benchmark(model, data_dir, res_cache, refresh_cache,
-                       batch_size=256, num_workers=2):
+                       batch_size=256, num_workers=2, fer_plus=False):
     if not refresh_cache: # load result from cache, if available
         if os.path.isfile(res_cache):
             res = torch.load(res_cache)
@@ -33,11 +33,15 @@ def fer2013_benchmark(model, data_dir, res_cache, refresh_cache,
     cudnn.benchmark = True
     model = torch.nn.DataParallel(model).cuda()
     preproc_transforms = compose_transforms(meta, center_crop=False)
+    if fer_plus:
+        dataset = Fer2013PlusDataset
+    else:
+        dataset = Fer2013Dataset
     speeds = []
     res = {}
     for mode in 'val', 'test':
         loader = torch.utils.data.DataLoader(
-            Fer2013Dataset(data_dir, mode=mode, transform=preproc_transforms),
+            dataset(data_dir, mode=mode, transform=preproc_transforms),
             batch_size=batch_size, shuffle=False,
             num_workers=num_workers, pin_memory=True)
         prec1, speed = validate(loader, model, mode)

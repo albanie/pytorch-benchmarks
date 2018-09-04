@@ -7,7 +7,8 @@ import six
 
 import torchvision.transforms as transforms
 
-def compose_transforms(meta, resize=256, center_crop=True):
+def compose_transforms(meta, resize=256, center_crop=True,
+                      override_meta_imsize=False):
     """Compose preprocessing transforms for model
 
     The imported models use a range of different preprocessing options,
@@ -19,6 +20,9 @@ def compose_transforms(meta, resize=256, center_crop=True):
         meta (dict): model preprocessing requirements
         resize (int) [256]: resize the input image to this size
         center_crop (bool) [True]: whether to center crop the image
+        override_meta_imsize (bool) [False]: if true, use the value of `resize`
+           to select the image input size, rather than the properties contained
+           in meta (this option only applies when center cropping is not used.
 
     Return:
         (transforms.Compose): Composition of preprocessing transforms
@@ -30,6 +34,8 @@ def compose_transforms(meta, resize=256, center_crop=True):
         transform_list = [transforms.Resize(resize),
                           transforms.CenterCrop(size=(im_size[0], im_size[1]))]
     else:
+        if override_meta_imsize:
+            im_size = (resize, resize)
         transform_list = [transforms.Resize(size=(im_size[0], im_size[1]))]
     transform_list += [transforms.ToTensor()]
     if meta['std'] == [1,1,1]: # common amongst mcn models
