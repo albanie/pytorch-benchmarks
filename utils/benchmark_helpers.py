@@ -7,8 +7,9 @@ import six
 
 import torchvision.transforms as transforms
 
+
 def compose_transforms(meta, resize=256, center_crop=True,
-                      override_meta_imsize=False):
+                       override_meta_imsize=False):
     """Compose preprocessing transforms for model
 
     The imported models use a range of different preprocessing options,
@@ -38,10 +39,11 @@ def compose_transforms(meta, resize=256, center_crop=True,
             im_size = (resize, resize)
         transform_list = [transforms.Resize(size=(im_size[0], im_size[1]))]
     transform_list += [transforms.ToTensor()]
-    if meta['std'] == [1,1,1]: # common amongst mcn models
+    if meta['std'] == [1, 1, 1]:  # common amongst mcn models
         transform_list += [lambda x: x * 255.0]
     transform_list.append(normalize)
     return transforms.Compose(transform_list)
+
 
 def load_module_2or3(model_name, model_def_path):
     """Load model definition module in a manner that is compatible with
