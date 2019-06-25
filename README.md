@@ -1,6 +1,6 @@
 ### pytorch-benchmark
 
-Some scripts for validating models on common benchmarks. Aims to be compatible with both Python2 and Python3.  Relies on PyTorch 4.0.
+Some scripts for validating models on common benchmarks. Assumes at least Python3 and PyTorch 4.0.
 
 
 ### Supported datasets:
