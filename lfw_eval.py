@@ -4,8 +4,8 @@ sanity check for imported models.
 
 Example Invocation:
 ipy lfw_eval.py
-ipy lfw_eval.py -- --model_name vgg_face_dag
-ipy lfw_eval.py -- --limit 2000 --model_name vgg_face_dag
+ipy lfw_eval.py -- --limit 200 --model_name vgg_face_dag
+ipy lfw_eval.py -- --model_name vgg_m_face_bn_dag
 
 This code is primarily based on the code of https://github.com/clcarwin. The
 original code can be found here:
@@ -139,7 +139,7 @@ def modify_to_return_embeddings(net, model_name):
     NOTE:
         We use `nn.Sequential` to simluate Identity (i.e. no-op).
     """
-    if model_name == "vgg_face_dag":
+    if model_name in ["vgg_face_dag", "vgg_m_face_bn_dag"]:
         net.fc8 = torch.nn.Sequential()
     else:
         msg = "{} not yet supported".format(model_name)
